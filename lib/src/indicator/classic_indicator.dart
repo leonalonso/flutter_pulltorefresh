@@ -155,7 +155,7 @@ class _ClassicHeaderState extends RefreshIndicatorState<ClassicHeader> {
     // TODO: implement buildContent
    
     Widget iconWidget = _buildIcon(mode);
-    List<Widget> children = <Widget>[iconWidget, textWidget];
+    List<Widget> children = <Widget>[iconWidget];
     final Widget container = Wrap(
       spacing: widget.spacing,
       textDirection: widget.iconPos == IconPosition.left
