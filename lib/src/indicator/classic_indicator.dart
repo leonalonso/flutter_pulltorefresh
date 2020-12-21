@@ -61,6 +61,7 @@ class ClassicHeader extends RefreshIndicator {
     Key key,
     RefreshStyle refreshStyle: RefreshStyle.Follow,
     double height: 60.0,
+    double padding: 60.0,
     Duration completeDuration: const Duration(milliseconds: 600),
     this.outerBuilder,
     this.textStyle: const TextStyle(color: Colors.grey),
