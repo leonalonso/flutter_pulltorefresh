@@ -1,209 +1,327 @@
 /*
- * Author: Jpeng
- * Email: peng8350@gmail.com
- * Time: 2019/5/4 下午9:49
+ *   Author: Jpeng
+ *   Email: peng8350@gmail.com
+ *   createTime:2018-05-14 17:39
  */
 
+import 'package:flutter/material.dart'
+    hide RefreshIndicator, RefreshIndicatorState;
 import 'package:flutter/widgets.dart';
+import '../../pull_to_refresh.dart';
 import '../internals/indicator_wrap.dart';
 import '../smart_refresher.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 
-/// custom header builder,you can use second paramter to know what header state is
-typedef Widget HeaderBuilder(BuildContext context, RefreshStatus mode);
+/// direction that icon should place to the text
+enum IconPosition { left, right, top, bottom }
 
-/// custom footer builder,you can use second paramter to know what footerr state is
-typedef Widget FooterBuilder(BuildContext context, LoadStatus mode);
+/// wrap child in outside,mostly use in add background color and padding
+typedef Widget OuterBuilder(Widget child);
 
-/// a custom Indicator for header
+///the most common indicator,combine with a text and a icon
 ///
-/// here is the very simple usage
+/// See also:
 ///
-/// ```dart
-/// CustomHeader(
-///      builder: (context,mode){
-///        Widget body;
-///        if(mode==RefreshStatus.idle){
-///          body = Text("pull down refresh");
-///        }
-///       else if(mode==RefreshStatus.refreshing){
-///          body = CupertinoActivityIndicator();
-///        }
-///        else if(mode==RefreshStatus.canRefresh){
-///          body = Text("release to refresh");
-///        }
-///        else if(mode==RefreshStatus.completed){
-///          body = Text("refreshCompleted!");
-///       }
-///        return Container(
-///          height: 60.0,
-///          child: Center(
-///            child: body,
-///          ),
-///       );
-///      },
-///    )
-/// ```
-/// If you need to listen overScroll event do some animate,you should use [OnOffsetChange] callback in [SmartRefresher]
-/// finally,If your indicator contain more complex animation and need to update frequently ,I suggest you extends [RefreshIndicator] to implements
-///
-/// See also
-///
-/// [CustomFooter], a custom Indicator for footer
-class CustomHeader extends RefreshIndicator {
-  final HeaderBuilder builder;
+/// [ClassicFooter]
+class ClassicHeader extends RefreshIndicator {
+  /// a builder for re wrap child,If you need to change the boxExtent or background,padding etc.you need outerBuilder to reWrap child
+  /// example:
+  /// ```dart
+  /// outerBuilder:(child){
+  ///    return Container(
+  ///       color:Colors.red,
+  ///       child:child
+  ///    );
+  /// }
+  /// ````
+  /// In this example,it will help to add backgroundColor in indicator
+  final OuterBuilder outerBuilder;
+  final String releaseText,
+      idleText,
+      refreshingText,
+      completeText,
+      failedText,
+      canTwoLevelText;
+  final Widget releaseIcon,
+      idleIcon,
+      refreshingIcon,
+      completeIcon,
+      failedIcon,
+      canTwoLevelIcon,
+      twoLevelView;
 
-  final VoidFutureCallBack readyToRefresh;
+  /// icon and text middle margin
+  final double spacing;
+  final IconPosition iconPos;
 
-  final VoidFutureCallBack endRefresh;
+  final TextStyle textStyle;
 
-  final OffsetCallBack onOffsetChange;
-
-  final ModeChangeCallBack<RefreshStatus> onModeChange;
-
-  final VoidCallback onResetValue;
-
-  const CustomHeader({
+  const ClassicHeader({
     Key key,
-    @required this.builder,
-    this.readyToRefresh,
-    this.endRefresh,
-    this.onOffsetChange,
-    this.onModeChange,
-    this.onResetValue,
+    RefreshStyle refreshStyle: RefreshStyle.Follow,
     double height: 60.0,
     Duration completeDuration: const Duration(milliseconds: 600),
-    RefreshStyle refreshStyle: RefreshStyle.Follow,
+    this.outerBuilder,
+    this.textStyle: const TextStyle(color: Colors.grey),
+    this.releaseText,
+    this.refreshingText,
+    this.canTwoLevelIcon,
+    this.twoLevelView,
+    this.canTwoLevelText,
+    this.completeText,
+    this.failedText,
+    this.idleText,
+    this.iconPos: IconPosition.left,
+    this.spacing: 15.0,
+    this.refreshingIcon,
+    this.failedIcon: const Icon(Icons.error, color: Colors.grey),
+    this.completeIcon: const Icon(Icons.done, color: Colors.grey),
+    this.idleIcon = const Icon(Icons.arrow_downward, color: Colors.grey),
+    this.releaseIcon = const Icon(Icons.refresh, color: Colors.grey),
   }) : super(
-            key: key,
-            completeDuration: completeDuration,
-            refreshStyle: refreshStyle,
-            height: height);
+          key: key,
+          refreshStyle: refreshStyle,
+          completeDuration: completeDuration,
+          height: height,
+        );
 
   @override
-  State<StatefulWidget> createState() {
+  State createState() {
     // TODO: implement createState
-    return _CustomHeaderState();
+    return _ClassicHeaderState();
   }
 }
 
-class _CustomHeaderState extends RefreshIndicatorState<CustomHeader> {
-  @override
-  void onOffsetChange(double offset) {
-    // TODO: implement onOffsetChange
-    if (widget.onOffsetChange != null) {
-      widget.onOffsetChange(offset);
-    }
-    super.onOffsetChange(offset);
+class _ClassicHeaderState extends RefreshIndicatorState<ClassicHeader> {
+  Widget _buildText(mode) {
+    RefreshString strings =
+        RefreshLocalizations.of(context)?.currentLocalization ??
+            EnRefreshString();
+    return Text(
+        mode == RefreshStatus.canRefresh
+            ? widget.releaseText ?? strings.canRefreshText
+            : mode == RefreshStatus.completed
+                ? widget.completeText ?? strings.refreshCompleteText
+                : mode == RefreshStatus.failed
+                    ? widget.failedText ?? strings.refreshFailedText
+                    : mode == RefreshStatus.refreshing
+                        ? widget.refreshingText ?? strings.refreshingText
+                        : mode == RefreshStatus.idle
+                            ? widget.idleText ?? strings.idleRefreshText
+                            : mode == RefreshStatus.canTwoLevel
+                                ? widget.canTwoLevelText ??
+                                    strings.canTwoLevelText
+                                : "",
+        style: widget.textStyle);
+  }
+
+  Widget _buildIcon(mode) {
+    Widget icon = mode == RefreshStatus.canRefresh
+        ? widget.releaseIcon
+        : mode == RefreshStatus.idle
+            ? widget.idleIcon
+            : mode == RefreshStatus.completed
+                ? widget.completeIcon
+                : mode == RefreshStatus.failed
+                    ? widget.failedIcon
+                    : mode == RefreshStatus.canTwoLevel
+                        ? widget.canTwoLevelIcon
+                        : mode == RefreshStatus.canTwoLevel
+                            ? widget.canTwoLevelIcon
+                            : mode == RefreshStatus.refreshing
+                                ? widget.refreshingIcon ??
+                                    SizedBox(
+                                      width: 25.0,
+                                      height: 25.0,
+                                      child: defaultTargetPlatform ==
+                                              TargetPlatform.iOS
+                                          ? const CupertinoActivityIndicator()
+                                          : const CircularProgressIndicator(
+                                              strokeWidth: 2.0),
+                                    )
+                                : widget.twoLevelView;
+    return icon ?? Container();
   }
 
   @override
-  void onModeChange(RefreshStatus mode) {
-    // TODO: implement onModeChange
-    if (widget.onModeChange != null) {
-      widget.onModeChange(mode);
-    }
-    super.onModeChange(mode);
-  }
-
-  @override
-  Future<void> readyToRefresh() {
-    // TODO: implement endRefresh
-    if (widget.readyToRefresh != null) {
-      return widget.readyToRefresh();
-    }
-    return super.readyToRefresh();
-  }
-
-  @override
-  Future<void> endRefresh() {
-    // TODO: implement endRefresh
-    if (widget.endRefresh != null) {
-      return widget.endRefresh();
-    }
-    return super.endRefresh();
+  bool needReverseAll() {
+    // TODO: implement needReverseAll
+    return false;
   }
 
   @override
   Widget buildContent(BuildContext context, RefreshStatus mode) {
     // TODO: implement buildContent
-    return widget.builder(context, mode);
+    Widget textWidget = _buildText(mode);
+    Widget iconWidget = _buildIcon(mode);
+    List<Widget> children = <Widget>[iconWidget, textWidget];
+    final Widget container = Wrap(
+      spacing: widget.spacing,
+      textDirection: widget.iconPos == IconPosition.left
+          ? TextDirection.ltr
+          : TextDirection.rtl,
+      direction: widget.iconPos == IconPosition.bottom ||
+              widget.iconPos == IconPosition.top
+          ? Axis.vertical
+          : Axis.horizontal,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      verticalDirection: widget.iconPos == IconPosition.bottom
+          ? VerticalDirection.up
+          : VerticalDirection.down,
+      alignment: WrapAlignment.center,
+      children: children,
+    );
+    return widget.outerBuilder != null
+        ? widget.outerBuilder(container)
+        : Container(
+            child: Center(child: container),
+            height: widget.height,
+          );
   }
 }
 
-/// a custom Indicator for footer,the usage I have put in [CustomHeader],same with that
-/// See also
+///the most common indicator,combine with a text and a icon
 ///
-/// [CustomHeader], a custom Indicator for header
-class CustomFooter extends LoadIndicator {
-  final FooterBuilder builder;
+// See also:
+//
+// [ClassicHeader]
+class ClassicFooter extends LoadIndicator {
+  final String idleText, loadingText, noDataText, failedText, canLoadingText;
 
-  final OffsetCallBack onOffsetChange;
+  /// a builder for re wrap child,If you need to change the boxExtent or background,padding etc.you need outerBuilder to reWrap child
+  /// example:
+  /// ```dart
+  /// outerBuilder:(child){
+  ///    return Container(
+  ///       color:Colors.red,
+  ///       child:child
+  ///    );
+  /// }
+  /// ````
+  /// In this example,it will help to add backgroundColor in indicator
+  final OuterBuilder outerBuilder;
 
-  final ModeChangeCallBack onModeChange;
+  final Widget idleIcon, loadingIcon, noMoreIcon, failedIcon, canLoadingIcon;
 
-  final VoidFutureCallBack readyLoading;
+  /// icon and text middle margin
+  final double spacing;
 
-  final VoidFutureCallBack endLoading;
+  final IconPosition iconPos;
 
-  const CustomFooter({
+  final TextStyle textStyle;
+
+  /// notice that ,this attrs only works for LoadStyle.ShowWhenLoading
+  final Duration completeDuration;
+
+  const ClassicFooter({
     Key key,
-    double height: 60.0,
-    this.onModeChange,
-    this.onOffsetChange,
-    this.readyLoading,
-    this.endLoading,
+    VoidCallback onClick,
     LoadStyle loadStyle: LoadStyle.ShowAlways,
-    @required this.builder,
-    Function onClick,
-  }) : super(key: key, onClick: onClick, loadStyle: loadStyle, height: height);
+    double height: 60.0,
+    this.outerBuilder,
+    this.textStyle: const TextStyle(color: Colors.grey),
+    this.loadingText,
+    this.noDataText,
+    this.noMoreIcon,
+    this.idleText,
+    this.failedText,
+    this.canLoadingText,
+    this.failedIcon: const Icon(Icons.error, color: Colors.grey),
+    this.iconPos: IconPosition.left,
+    this.spacing: 15.0,
+    this.completeDuration: const Duration(milliseconds: 300),
+    this.loadingIcon,
+    this.canLoadingIcon: const Icon(Icons.autorenew, color: Colors.grey),
+    this.idleIcon = const Icon(Icons.arrow_upward, color: Colors.grey),
+  }) : super(
+          key: key,
+          loadStyle: loadStyle,
+          height: height,
+          onClick: onClick,
+        );
 
   @override
   State<StatefulWidget> createState() {
     // TODO: implement createState
-    return _CustomFooterState();
+
+    return _ClassicFooterState();
   }
 }
 
-class _CustomFooterState extends LoadIndicatorState<CustomFooter> {
-  @override
-  void onOffsetChange(double offset) {
-    // TODO: implement onOffsetChange
-    if (widget.onOffsetChange != null) {
-      widget.onOffsetChange(offset);
-    }
-    super.onOffsetChange(offset);
+class _ClassicFooterState extends LoadIndicatorState<ClassicFooter> {
+  Widget _buildText(LoadStatus mode) {
+    RefreshString strings =
+        RefreshLocalizations.of(context)?.currentLocalization ??
+            EnRefreshString();
+    return Text(
+        mode == LoadStatus.loading
+            ? widget.loadingText ?? strings.loadingText
+            : LoadStatus.noMore == mode
+                ? widget.noDataText ?? strings.noMoreText
+                : LoadStatus.failed == mode
+                    ? widget.failedText ?? strings.loadFailedText
+                    : LoadStatus.canLoading == mode
+                        ? widget.canLoadingText ?? strings.canLoadingText
+                        : widget.idleText ?? strings.idleLoadingText,
+        style: widget.textStyle);
   }
 
-  @override
-  void onModeChange(LoadStatus mode) {
-    // TODO: implement onModeChange
-    if (widget.onModeChange != null) {
-      widget.onModeChange(mode);
-    }
-    super.onModeChange(mode);
-  }
-
-  @override
-  Future readyToLoad() {
-    // TODO: implement readyToLoad
-    if (widget.readyLoading != null) {
-      return widget.readyLoading();
-    }
-    return super.readyToLoad();
+  Widget _buildIcon(LoadStatus mode) {
+    Widget icon = mode == LoadStatus.loading
+        ? widget.loadingIcon ??
+            SizedBox(
+              width: 25.0,
+              height: 25.0,
+              child: defaultTargetPlatform == TargetPlatform.iOS
+                  ? const CupertinoActivityIndicator()
+                  : const CircularProgressIndicator(strokeWidth: 2.0),
+            )
+        : mode == LoadStatus.noMore
+            ? widget.noMoreIcon
+            : mode == LoadStatus.failed
+                ? widget.failedIcon
+                : mode == LoadStatus.canLoading
+                    ? widget.canLoadingIcon
+                    : widget.idleIcon;
+    return icon ?? Container();
   }
 
   @override
   Future endLoading() {
     // TODO: implement endLoading
-    if (widget.endLoading != null) {
-      return widget.endLoading();
-    }
-    return super.endLoading();
+    return Future.delayed(widget.completeDuration);
   }
 
   @override
   Widget buildContent(BuildContext context, LoadStatus mode) {
-    // TODO: implement buildContent
-    return widget.builder(context, mode);
+    // TODO: implement buildChild
+    Widget textWidget = _buildText(mode);
+    Widget iconWidget = _buildIcon(mode);
+    List<Widget> children = <Widget>[iconWidget, textWidget];
+    final Widget container = Wrap(
+      spacing: widget.spacing,
+      textDirection: widget.iconPos == IconPosition.left
+          ? TextDirection.ltr
+          : TextDirection.rtl,
+      direction: widget.iconPos == IconPosition.bottom ||
+              widget.iconPos == IconPosition.top
+          ? Axis.vertical
+          : Axis.horizontal,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      verticalDirection: widget.iconPos == IconPosition.bottom
+          ? VerticalDirection.up
+          : VerticalDirection.down,
+      alignment: WrapAlignment.center,
+      children: children,
+    );
+    return widget.outerBuilder != null
+        ? widget.outerBuilder(container)
+        : Container(
+            height: widget.height,
+            child: Center(
+              child: container,
+            ),
+          );
   }
 }
