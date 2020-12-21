@@ -153,7 +153,6 @@ class _ClassicHeaderState extends RefreshIndicatorState<ClassicHeader> {
   @override
   Widget buildContent(BuildContext context, RefreshStatus mode) {
     // TODO: implement buildContent
-   
     Widget iconWidget = _buildIcon(mode);
     List<Widget> children = <Widget>[iconWidget];
     final Widget container = Wrap(
@@ -296,9 +295,8 @@ class _ClassicFooterState extends LoadIndicatorState<ClassicFooter> {
   @override
   Widget buildContent(BuildContext context, LoadStatus mode) {
     // TODO: implement buildChild
-    Widget textWidget = _buildText(mode);
     Widget iconWidget = _buildIcon(mode);
-    List<Widget> children = <Widget>[iconWidget, textWidget];
+    List<Widget> children = <Widget>[iconWidget];
     final Widget container = Wrap(
       spacing: widget.spacing,
       textDirection: widget.iconPos == IconPosition.left
